@@ -3,6 +3,7 @@ package discovery
 import (
 	"time"
 
+	"github.com/yuanzhangcai/srsd/selector"
 	"github.com/yuanzhangcai/srsd/service"
 )
 
@@ -10,7 +11,7 @@ var (
 	defaultPrefix    = "/srsd/services/"
 	defaultAddresses = []string{"127.0.0.1:2379"}
 	defaultTimeout   = 5 * time.Second
-	defaultTTL       = 10 * time.Second
+	defaultSelectors = []selector.Selector{} // 默认使用循环选择器
 )
 
 // Option 设置服务注册参数
@@ -21,13 +22,13 @@ type Watch func(event int32, host string)
 
 // Options 服务注册参数
 type Options struct {
-	Addresses []string           // etcd地址
-	Username  string             // etcd用户名
-	Password  string             // etcd密码
-	Prefix    string             //服务注册前缀
-	Timeout   time.Duration      // etcd超时时间
-	TTL       time.Duration      // 服务存活时间
-	Watch     func(event *Event) // 服务发生变化时回调函数
+	Addresses []string            // etcd地址
+	Username  string              // etcd用户名
+	Password  string              // etcd密码
+	Prefix    string              //服务注册前缀
+	Timeout   time.Duration       // etcd超时时间
+	Watch     func(event *Event)  // 服务发生变化时回调函数
+	Selectors []selector.Selector // 服务发现
 }
 
 // NewOptions 那建服务注册参数对象
@@ -36,7 +37,6 @@ func newOptions(opts ...Option) *Options {
 		Addresses: defaultAddresses,
 		Prefix:    defaultPrefix,
 		Timeout:   defaultTimeout,
-		TTL:       defaultTTL,
 	}
 
 	for _, one := range opts {
@@ -91,9 +91,9 @@ func Timeout(timeout time.Duration) Option {
 	}
 }
 
-// TTL 设置服务存活时间
-func TTL(ttl time.Duration) Option {
+// Selectors 设置服务发选择器
+func Selectors(selectors ...selector.Selector) Option {
 	return func(opt *Options) {
-		opt.TTL = ttl
+		opt.Selectors = append(opt.Selectors, selectors...)
 	}
 }

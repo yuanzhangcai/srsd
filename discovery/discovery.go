@@ -6,6 +6,8 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/yuanzhangcai/srsd/selector"
+
 	"github.com/coreos/etcd/clientv3"
 	"github.com/coreos/etcd/mvcc/mvccpb"
 	"github.com/yuanzhangcai/srsd/service"
@@ -20,7 +22,7 @@ type Discovery struct {
 	cli     *clientv3.Client
 	m       sync.RWMutex
 	cancel  context.CancelFunc
-	srvList map[string]*service.Services
+	srvList map[string][]*service.Service
 }
 
 // NewDiscovery 创建服务发现组件
@@ -29,7 +31,7 @@ func NewDiscovery(opts ...Option) *Discovery {
 
 	return &Discovery{
 		opts:    opt,
-		srvList: make(map[string]*service.Services),
+		srvList: make(map[string][]*service.Service),
 	}
 }
 
@@ -103,14 +105,51 @@ func (c *Discovery) loadAll(name string) error {
 		}
 
 		key := c.getServiceName(string(kv.Key))
-		one, ok := c.srvList[key]
-		if !ok {
-			one = service.NewServices()
-			c.srvList[key] = one
-		}
-		one.Put(srv)
+		c.putSrv(key, srv)
 	}
 	return nil
+}
+
+func (c *Discovery) putSrv(key string, srv *service.Service) {
+	list, ok := c.srvList[key]
+	if !ok {
+		list = []*service.Service{}
+	}
+
+	has := false
+	for i, one := range list {
+		if one.ID == srv.ID {
+			list[i] = srv
+			has = true
+			break
+		}
+	}
+
+	if !has {
+		list = append(list, srv)
+	}
+
+	c.srvList[key] = list
+}
+
+func (c *Discovery) delSrv(key, id string) {
+	list, ok := c.srvList[key]
+	if !ok {
+		return
+	}
+
+	if len(list) == 0 {
+		return
+	}
+
+	for i, one := range list {
+		if one.ID == id {
+			tmp := append([]*service.Service{}, list[0:i]...)
+			tmp = append(tmp, list[i+1:]...)
+			list = tmp
+		}
+	}
+	c.srvList[key] = list
 }
 
 func (c *Discovery) startWatch(name string) error {
@@ -143,22 +182,16 @@ func (c *Discovery) reload(resp *clientv3.WatchResponse) error {
 		name := c.getServiceName(key)
 		id := c.getServiceID(key)
 
-		srvs, ok := c.srvList[name]
-		if !ok {
-			srvs = service.NewServices()
-			c.srvList[name] = srvs
-		}
-
 		switch one.Type {
 		case mvccpb.DELETE:
-			srvs.Delete(id)
+			c.delSrv(name, id)
 		case mvccpb.PUT:
 			srv := &service.Service{}
 			err := json.Unmarshal(one.Kv.Value, srv)
 			if err != nil {
 				continue
 			}
-			srvs.Put(srv)
+			c.putSrv(key, srv)
 		}
 
 		if c.opts.Watch != nil {
@@ -170,14 +203,21 @@ func (c *Discovery) reload(resp *clientv3.WatchResponse) error {
 }
 
 // Get 获取服务信息
-func (c *Discovery) Get(service string) *service.Service {
+func (c *Discovery) Get(service string, selectors ...selector.Selector) *service.Service {
 	c.m.RLock()
 	defer c.m.RUnlock()
-	srvs, ok := c.srvList[service]
+	list, ok := c.srvList[service]
 	if !ok {
 		return nil
 	}
-	_ = srvs
 
-	return nil
+	if len(selectors) == 0 {
+		selectors = c.opts.Selectors
+	}
+
+	for _, one := range selectors {
+		list = one.Filter(list)
+	}
+
+	return selectors[len(selectors)-1].Get(list)
 }

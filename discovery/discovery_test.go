@@ -1,4 +1,4 @@
-package srsd
+package discovery
 
 import (
 	"fmt"

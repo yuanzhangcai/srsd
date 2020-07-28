@@ -16,9 +16,6 @@ var (
 // Option 设置服务注册参数
 type Option func(*Options)
 
-// Watch watch回调函数
-type Watch func(event int32, host string)
-
 // Options 服务注册参数
 type Options struct {
 	Addresses []string      // etcd地址
