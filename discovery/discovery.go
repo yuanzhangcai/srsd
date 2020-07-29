@@ -6,10 +6,9 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/yuanzhangcai/srsd/selector"
-
 	"github.com/coreos/etcd/clientv3"
 	"github.com/coreos/etcd/mvcc/mvccpb"
+	"github.com/yuanzhangcai/srsd/selector"
 	"github.com/yuanzhangcai/srsd/service"
 )
 
@@ -36,7 +35,7 @@ func NewDiscovery(opts ...Option) *Discovery {
 }
 
 // Start 开启服务发现
-func (c *Discovery) Start(name string) error {
+func (c *Discovery) Start(key string) error {
 	c.m.Lock()
 	defer c.m.Unlock()
 
@@ -49,7 +48,7 @@ func (c *Discovery) Start(name string) error {
 		c.cli = cli
 	}
 
-	err := c.loadAll(name)
+	err := c.loadAll(key)
 	if err != nil {
 		return err
 	}
@@ -88,10 +87,10 @@ func (c *Discovery) getServiceID(key string) string {
 	return id
 }
 
-func (c *Discovery) loadAll(name string) error {
+func (c *Discovery) loadAll(key string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), c.opts.Timeout)
 	defer cancel()
-	key := c.opts.Prefix + name
+	key = c.opts.Prefix + key
 	resp, err := c.cli.Get(ctx, key, clientv3.WithPrefix())
 	if err != nil {
 		return err
@@ -202,12 +201,16 @@ func (c *Discovery) reload(resp *clientv3.WatchResponse) error {
 	return nil
 }
 
-// Get 获取服务信息
-func (c *Discovery) Get(service string, selectors ...selector.Selector) *service.Service {
+// Select 获取服务信息
+func (c *Discovery) Select(name string, selectors ...selector.Selector) *service.Service {
 	c.m.RLock()
 	defer c.m.RUnlock()
-	list, ok := c.srvList[service]
+	list, ok := c.srvList[name]
 	if !ok {
+		return nil
+	}
+
+	if len(list) == 0 {
 		return nil
 	}
 
@@ -216,8 +219,36 @@ func (c *Discovery) Get(service string, selectors ...selector.Selector) *service
 	}
 
 	for _, one := range selectors {
-		list = one.Filter(list)
+		list = one.Filter(name, list)
 	}
 
-	return selectors[len(selectors)-1].Get(list)
+	if len(list) > 0 {
+		return list[0]
+	}
+
+	return nil
+}
+
+// GetAll 获取所有服务器信
+func (c *Discovery) GetAll(name string) []*service.Service {
+	c.m.RLock()
+	defer c.m.RUnlock()
+	return c.srvList[name]
+}
+
+// Stop 停止服务发现
+func (c *Discovery) Stop() error {
+	c.m.Lock()
+	defer c.m.Unlock()
+
+	if c.cli != nil {
+		if c.cancel != nil {
+			c.cancel()
+		}
+
+		c.cli.Close()
+		c.srvList = make(map[string][]*service.Service)
+	}
+
+	return nil
 }

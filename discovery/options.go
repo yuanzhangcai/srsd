@@ -11,7 +11,7 @@ var (
 	defaultPrefix    = "/srsd/services/"
 	defaultAddresses = []string{"127.0.0.1:2379"}
 	defaultTimeout   = 5 * time.Second
-	defaultSelectors = []selector.Selector{} // 默认使用循环选择器
+	defaultSelectors = []selector.Selector{selector.NewRound()} // 默认使用循环选择器
 )
 
 // Option 设置服务注册参数
