@@ -2,9 +2,14 @@ package selector
 
 import (
 	"math/rand"
+	"time"
 
 	"github.com/yuanzhangcai/srsd/service"
 )
+
+func init() {
+	rand.Seed(time.Now().UnixNano())
+}
 
 // Random 随机选择器
 type Random struct {

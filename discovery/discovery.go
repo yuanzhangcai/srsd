@@ -53,6 +53,11 @@ func (c *Discovery) Start(key string) error {
 		return err
 	}
 
+	err = c.startWatch(key)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -244,9 +249,11 @@ func (c *Discovery) Stop() error {
 	if c.cli != nil {
 		if c.cancel != nil {
 			c.cancel()
+			c.cancel = nil
 		}
 
 		c.cli.Close()
+		c.cli = nil
 		c.srvList = make(map[string][]*service.Service)
 	}
 

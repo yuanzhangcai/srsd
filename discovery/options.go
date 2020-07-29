@@ -37,6 +37,7 @@ func newOptions(opts ...Option) *Options {
 		Addresses: defaultAddresses,
 		Prefix:    defaultPrefix,
 		Timeout:   defaultTimeout,
+		Selectors: defaultSelectors,
 	}
 
 	for _, one := range opts {
@@ -94,6 +95,6 @@ func Timeout(timeout time.Duration) Option {
 // Selectors 设置服务发选择器
 func Selectors(selectors ...selector.Selector) Option {
 	return func(opt *Options) {
-		opt.Selectors = append(opt.Selectors, selectors...)
+		opt.Selectors = selectors
 	}
 }

@@ -29,8 +29,8 @@ func NewRegistry(srv *service.Service, opts ...Option) *Registry {
 	}
 }
 
-// Register 服务注册
-func (c *Registry) Register() error {
+// Start 开启服务注册
+func (c *Registry) Start() error {
 	c.m.Lock()
 	defer c.m.Unlock()
 
@@ -43,6 +43,7 @@ func (c *Registry) Register() error {
 		c.cli = cli
 	}
 
+	c.srv.CreateTime = time.Now().Format("2006-01-02 15:04:05")
 	val, err := json.Marshal(c.srv)
 	if err != nil {
 		return err
@@ -63,8 +64,7 @@ func (c *Registry) Register() error {
 		return err
 	}
 
-	kCtx, kCancel := context.WithTimeout(context.Background(), c.opts.Timeout)
-	defer kCancel()
+	kCtx := context.Background()
 	ch, err := c.cli.KeepAlive(kCtx, grant.ID)
 	if err != nil {
 		return err
@@ -76,7 +76,7 @@ func (c *Registry) Register() error {
 
 		for {
 			<-time.After(c.opts.Timeout)
-			err := c.Register()
+			err := c.Start() // 异常时，重启服务
 			if err == nil {
 				return
 			}
@@ -86,8 +86,8 @@ func (c *Registry) Register() error {
 	return nil
 }
 
-// Deregister 服务删除
-func (c *Registry) Deregister() error {
+// Stop 停止服务注册
+func (c *Registry) Stop() error {
 	c.m.Lock()
 	defer c.m.Unlock()
 
