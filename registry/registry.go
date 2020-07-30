@@ -39,6 +39,11 @@ func (c *Registry) Start() error {
 		return nil
 	}
 
+	err := c.srv.GetRealIP()
+	if err != nil {
+		return err
+	}
+
 	if c.cli == nil {
 		cli, err := c.createEtcdClient()
 		if err != nil {
