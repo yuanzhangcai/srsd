@@ -20,7 +20,7 @@ type Discovery struct {
 	opts    *Options
 	cli     *clientv3.Client
 	m       sync.RWMutex
-	cancel  context.CancelFunc
+	cancel  map[string]context.CancelFunc
 	srvList map[string][]*service.Service
 }
 
@@ -31,6 +31,7 @@ func NewDiscovery(opts ...Option) *Discovery {
 	return &Discovery{
 		opts:    opt,
 		srvList: make(map[string][]*service.Service),
+		cancel:  make(map[string]context.CancelFunc),
 	}
 }
 
@@ -46,6 +47,10 @@ func (c *Discovery) Start(key string) error {
 		}
 
 		c.cli = cli
+	}
+
+	if _, ok := c.cancel[key]; ok {
+		return nil
 	}
 
 	err := c.loadAll(key)
@@ -87,7 +92,7 @@ func (c *Discovery) getServiceID(key string) string {
 	id := key
 	index := strings.LastIndex(id, "/")
 	if index > 0 {
-		id = id[index:]
+		id = id[index+1:]
 	}
 	return id
 }
@@ -148,19 +153,17 @@ func (c *Discovery) delSrv(key, id string) {
 
 	for i, one := range list {
 		if one.ID == id {
-			tmp := append([]*service.Service{}, list[0:i]...)
-			tmp = append(tmp, list[i+1:]...)
-			list = tmp
+			list = append(list[0:i], list[i+1:]...)
 		}
 	}
 	c.srvList[key] = list
 }
 
-func (c *Discovery) startWatch(name string) error {
+func (c *Discovery) startWatch(key string) error {
 	ctx, cancel := context.WithCancel(context.Background())
-	c.cancel = cancel
-	key := c.opts.Prefix + name
-	ch := c.cli.Watch(ctx, key, clientv3.WithPrefix())
+	c.cancel[key] = cancel
+	watchKey := c.opts.Prefix + key
+	ch := c.cli.Watch(ctx, watchKey, clientv3.WithPrefix())
 	go func() {
 		for resp := range ch {
 			if resp.Canceled {
@@ -195,7 +198,7 @@ func (c *Discovery) reload(resp *clientv3.WatchResponse) error {
 			if err != nil {
 				continue
 			}
-			c.putSrv(key, srv)
+			c.putSrv(name, srv)
 		}
 
 		if c.opts.Watch != nil {
@@ -210,9 +213,17 @@ func (c *Discovery) reload(resp *clientv3.WatchResponse) error {
 func (c *Discovery) Select(name string, selectors ...selector.Selector) *service.Service {
 	c.m.RLock()
 	defer c.m.RUnlock()
-	list, ok := c.srvList[name]
-	if !ok {
-		return nil
+	var list []*service.Service
+	ok := false
+	if name != "" {
+		list, ok = c.srvList[name]
+		if !ok {
+			return nil
+		}
+	} else {
+		for _, one := range c.srvList {
+			list = append(list, one...)
+		}
 	}
 
 	if len(list) == 0 {
@@ -238,7 +249,21 @@ func (c *Discovery) Select(name string, selectors ...selector.Selector) *service
 func (c *Discovery) GetAll(name string) []*service.Service {
 	c.m.RLock()
 	defer c.m.RUnlock()
-	return c.srvList[name]
+
+	var list []*service.Service
+	ok := false
+	if name != "" {
+		list, ok = c.srvList[name]
+		if !ok {
+			return nil
+		}
+	} else {
+		for _, one := range c.srvList {
+			list = append(list, one...)
+		}
+	}
+
+	return list
 }
 
 // Stop 停止服务发现
@@ -247,11 +272,6 @@ func (c *Discovery) Stop() error {
 	defer c.m.Unlock()
 
 	if c.cli != nil {
-		if c.cancel != nil {
-			c.cancel()
-			c.cancel = nil
-		}
-
 		c.cli.Close()
 		c.cli = nil
 		c.srvList = make(map[string][]*service.Service)

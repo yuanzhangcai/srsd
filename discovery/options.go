@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"github.com/yuanzhangcai/srsd/selector"
-	"github.com/yuanzhangcai/srsd/service"
 )
 
 var (
@@ -44,13 +43,6 @@ func newOptions(opts ...Option) *Options {
 		one(opt)
 	}
 	return opt
-}
-
-//
-
-// CreateServiceKey 生成服务注册key
-func (c *Options) CreateServiceKey(srv *service.Service) string {
-	return c.Prefix + srv.Name + "/" + srv.ID
 }
 
 // Addresses 设置etcd地址

@@ -9,6 +9,7 @@ require (
 	github.com/gogo/protobuf v1.3.1 // indirect
 	github.com/google/uuid v1.1.1
 	github.com/micro/go-micro v1.18.0
+	github.com/stretchr/testify v1.6.1
 	go.uber.org/zap v1.15.0 // indirect
 	google.golang.org/grpc v1.26.0
 )

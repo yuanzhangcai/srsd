@@ -10,7 +10,7 @@ sonar:
 	-Dsonar.host.url=http://127.0.0.1:9000 \
 	-Dsonar.sources=. \
 	-Dsonar.tests=. \
-	-Dsonar.exclusions="**/*_test.go" \
+	-Dsonar.exclusions="**/*_test.go,**/examples/**" \
 	-Dsonar.projectKey=srsd \
 	-Dsonar.login=344ad0c611674bcbbf571f17bf5271f4c678e4aa \
 	-Dsonar.go.tests.reportPaths=test.tmp \
@@ -18,7 +18,7 @@ sonar:
 	-Dsonar.go.govet.reportPaths=vet.tmp \
 	-Dsonar.go.golangci-lint.reportPaths=golangci-lint.tmp \
 	-Dsonar.test.inclusions="**/*_test.go" \
-    -Dsonar.test.exclusions="**/vendor/**" | grep -v "WARN:"
+    -Dsonar.test.exclusions="**/vendor/** " | grep -v "WARN:"
 	rm -rf *.tmp
 	rm -rf .scannerwork
 	rm -rf covprofile
