@@ -104,8 +104,6 @@ func TestStart(t *testing.T) {
 		err := dis.Stop()
 		assert.Nil(t, err)
 		assert.Nil(t, dis.cli)
-		srv := dis.Select("zacyuan.com")
-		assert.Nil(t, srv)
 	})
 
 	t.Run("Stop again", func(t *testing.T) {

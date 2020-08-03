@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/coreos/etcd/clientv3"
 	"github.com/coreos/etcd/mvcc/mvccpb"
@@ -166,6 +167,19 @@ func (c *Discovery) startWatch(key string) error {
 	ch := c.cli.Watch(ctx, watchKey, clientv3.WithPrefix())
 	go func() {
 		for resp := range ch {
+			if resp.Err() != nil {
+				// watch异常，停止服务发现，然后再重启服服务发现
+				err := c.Stop()
+				if err == nil {
+					err := c.Start(key)
+					if err == nil {
+						return // 重启服务发现成功后，协程退出
+					}
+				}
+				time.Sleep(c.opts.Timeout * time.Second)
+				continue
+			}
+
 			if resp.Canceled {
 				return
 			}
@@ -272,9 +286,10 @@ func (c *Discovery) Stop() error {
 	defer c.m.Unlock()
 
 	if c.cli != nil {
-		c.cli.Close()
+		_ = c.cli.Close()
 		c.cli = nil
-		c.srvList = make(map[string][]*service.Service)
+		// 服务停止后，不清空服务信息缓存
+		// c.srvList = make(map[string][]*service.Service)
 	}
 
 	return nil
