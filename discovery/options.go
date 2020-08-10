@@ -30,7 +30,7 @@ type Options struct {
 	Selectors []selector.Selector // 服务发现
 }
 
-// NewOptions 那建服务注册参数对象
+// newOptions 创建服务注册参数对象
 func newOptions(opts ...Option) *Options {
 	opt := &Options{
 		Addresses: defaultAddresses,
