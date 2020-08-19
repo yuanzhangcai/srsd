@@ -26,7 +26,7 @@ import(
 
 ```
 
-服务注册example:
+服务发现example:
 ```
 import(
     "github.com/yuanzhangcai/srsd/discovery"
